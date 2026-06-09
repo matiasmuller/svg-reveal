@@ -1,7 +1,7 @@
 {
   "name": "svg-reveal",
   "version": "0.1.0",
-  "description": "Libreria JavaScript para revelar SVGs con trazado progresivo de lineas.",
+  "description": "A small JavaScript utility for progressively revealing SVG drawings made of strokes.",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -12,6 +12,7 @@
     "dist",
     "src",
     "README.md",
+    "CHANGELOG.md",
     "LICENSE"
   ],
   "scripts": {
@@ -22,7 +23,11 @@
   "keywords": [
     "svg",
     "animation",
-    "web-animations"
+    "web-animations",
+    "stroke",
+    "line",
+    "reveal",
+    "draw"
   ],
   "author": "",
   "license": "MIT"

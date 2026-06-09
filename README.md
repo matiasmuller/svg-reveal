@@ -1,8 +1,12 @@
 # SVG Reveal
 
-Libreria JavaScript para revelar SVGs con trazado progresivo de lineas y textos letra por letra.
+Small JavaScript utility for progressively revealing SVG drawings made of lines and strokes.
 
-## Uso
+The package is intentionally focused: it is meant for line-based SVG illustrations, diagrams, icons, and technical drawings. It is not trying to replace general animation libraries.
+
+> Project status: early prototype. The current API is usable, but the public package direction is documented in `docs/project-principles.md`.
+
+## Usage
 
 ```js
 import { animateSvg, parseSvgString } from "svg-reveal";
@@ -18,7 +22,7 @@ const result = animateSvg(svg, {
 console.log(result.segmentCount, result.textCount);
 ```
 
-Tambien se puede animar cualquier `SVGSVGElement` que ya exista en el DOM:
+You can also animate any existing `SVGSVGElement` in the DOM:
 
 ```js
 import { animateSvg } from "svg-reveal";
@@ -32,41 +36,52 @@ animateSvg(document.querySelector("svg"), {
 
 ### `animateSvg(svg, options)`
 
-Anima `path`, `line`, `polyline`, `polygon`, `circle`, `ellipse`, `rect` y nodos `text`.
+Animates `path`, `line`, `polyline`, `polygon`, `circle`, `ellipse`, `rect`, and `text` nodes.
 
-Opciones principales:
+Main options:
 
-- `duration`: duracion total en milisegundos. Por defecto `4000`.
-- `textRenderRatio`: proporcion del tiempo dedicada al revelado de letras. Por defecto `0.2`.
-- `minSegmentLength`: ignora segmentos menores a este largo. Por defecto `0.5`.
-- `minSegmentDuration`: duracion minima de un segmento. Por defecto `80`.
-- `fillFadeDuration`: duracion del fade del relleno. Por defecto `180`.
-- `random`: funcion compatible con `Math.random`, util para pruebas deterministas.
+- `duration`: total duration in milliseconds. Defaults to `4000`.
+- `textRenderRatio`: proportion of the time dedicated to letter reveal. Defaults to `0.2`.
+- `minSegmentLength`: ignores segments shorter than this length. Defaults to `0.5`.
+- `minSegmentDuration`: minimum duration for a segment. Defaults to `80`.
+- `fillFadeDuration`: fill fade duration. Defaults to `180`.
+- `random`: `Math.random`-compatible function, useful for deterministic tests.
 
-Devuelve un resumen con `segmentCount`, `textCount`, `xt`, `velocity` y `animations`.
+Returns a summary with `segmentCount`, `textCount`, `xt`, `velocity`, and `animations`.
 
 ### `parseSvgString(source, options)`
 
-Parsea texto SVG y devuelve un `SVGSVGElement` importado en el `document` destino.
+Parses SVG text and returns an `SVGSVGElement` imported into the target `document`.
 
-Opciones:
+Options:
 
-- `document`: documento destino. Por defecto usa `globalThis.document`.
-- `removeDimensions`: elimina `width` y `height` para facilitar layouts responsivos. Por defecto `true`.
-- `ariaLabel`: etiqueta accesible aplicada al SVG. Por defecto `"SVG animado"`.
+- `document`: target document. Defaults to `globalThis.document`.
+- `removeDimensions`: removes `width` and `height` for responsive layouts. Defaults to `true`.
+- `ariaLabel`: accessible label applied to the SVG. Defaults to `"SVG animado"`.
+
+## Limitations
+
+- Dashed strokes can conflict with the stroke reveal technique because both use `stroke-dasharray`.
+- Complex SVGs exported from design tools may need cleanup before they animate well.
+- Text animation exists in the prototype, but the core package direction is SVG stroke reveal.
+- The package does not aim to replace GSAP, Framer Motion, or other general animation libraries.
 
 ## Playground
 
-El prototipo quedo como playground de desarrollo. Como usa modulos ES, abrilo con el servidor local:
+The prototype includes a local playground. Because it uses ES modules, run it through the local server:
 
 ```bash
 npm run playground
 ```
 
-Despues entra a `http://localhost:4173/`. No se incluye en el paquete publicado porque `package.json` limita los archivos con `files`.
+Then open `http://localhost:4173/`. The playground is not included in the published package because `package.json` limits published files with `files`.
 
-## Desarrollo
+## Development
 
 ```bash
 npm run build
 ```
+
+## Repository Quality
+
+This repo is intended to be public and portfolio-ready. Keep commits ordered, update `CHANGELOG.md` for visible changes, avoid unnecessary files, and keep documentation aligned with the package behavior.
