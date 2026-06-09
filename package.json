@@ -16,6 +16,7 @@
   ],
   "scripts": {
     "build": "node ./scripts/build.mjs",
+    "playground": "node ./scripts/serve-playground.mjs",
     "prepack": "npm run build"
   },
   "keywords": [

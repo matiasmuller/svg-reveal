@@ -57,7 +57,13 @@ Opciones:
 
 ## Playground
 
-El prototipo quedo como playground de desarrollo en `playground/index.html`. No se incluye en el paquete publicado porque `package.json` limita los archivos con `files`.
+El prototipo quedo como playground de desarrollo. Como usa modulos ES, abrilo con el servidor local:
+
+```bash
+npm run playground
+```
+
+Despues entra a `http://localhost:4173/`. No se incluye en el paquete publicado porque `package.json` limita los archivos con `files`.
 
 ## Desarrollo
 
