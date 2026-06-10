@@ -17,8 +17,12 @@
   ],
   "scripts": {
     "build": "node ./scripts/build.mjs",
+    "test": "node ./scripts/test.mjs",
+    "check": "npm run test && npm run build",
     "playground": "node ./scripts/serve-playground.mjs",
-    "prepack": "npm run build"
+    "prepack": "npm run build",
+    "release:suggest": "node ./scripts/suggest-version-bump.mjs",
+    "release:dry-run": "npm run check && npm pack --dry-run"
   },
   "keywords": [
     "svg",

@@ -1,4 +1,4 @@
-import { animateSvg, parseSvgString } from "../src/index.js";
+import { parseSvgString, revealSvg } from "../src/index.js";
 
 const fileInput = document.querySelector("#svgFile");
 const durationInput = document.querySelector("#duration");
@@ -17,12 +17,12 @@ fileInput.addEventListener("change", async (event) => {
   }
 
   lastSvgSource = await file.text();
-  loadAndAnimateSvg(lastSvgSource);
+  loadAndRevealSvg(lastSvgSource);
 });
 
 replayButton.addEventListener("click", () => {
   if (lastSvgSource) {
-    loadAndAnimateSvg(lastSvgSource);
+    loadAndRevealSvg(lastSvgSource);
   }
 });
 
@@ -31,13 +31,13 @@ letterPercentInput.addEventListener("change", replayIfPossible);
 
 function replayIfPossible() {
   if (lastSvgSource) {
-    loadAndAnimateSvg(lastSvgSource);
+    loadAndRevealSvg(lastSvgSource);
   }
 }
 
-function loadAndAnimateSvg(source) {
+function loadAndRevealSvg(source) {
   try {
-    const importedSvg = parseSvgString(source, { document });
+    const importedSvg = parseSvgString(source);
 
     stage.replaceChildren(importedSvg);
     replayButton.disabled = false;
@@ -45,16 +45,17 @@ function loadAndAnimateSvg(source) {
     requestAnimationFrame(() => {
       const seconds = readPositiveNumber(durationInput, 4);
       const textRenderRatio = readPercentNumber(letterPercentInput, 20) / 100;
-      const result = animateSvg(importedSvg, {
+      const reveal = revealSvg(importedSvg, {
         duration: seconds * 1000,
         textRenderRatio
       });
+      reveal.play();
 
       statusNode.textContent = [
-        `${result.segmentCount} segmentos`,
-        `${result.textCount} textos`,
-        `Xt ${result.xt.toFixed(1)}`,
-        `V ${result.velocity.toFixed(3)} u/ms`
+        `${reveal.segmentCount} segmentos`,
+        `${reveal.textCount} textos`,
+        `Xt ${reveal.xt.toFixed(1)}`,
+        `V ${reveal.velocity.toFixed(3)} u/ms`
       ].join(" - ");
     });
   } catch (error) {

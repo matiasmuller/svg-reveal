@@ -18,7 +18,7 @@ function toGlobalBuild(sourceCode) {
   const body = sourceCode
     .replace("export const DEFAULT_ANIMATION_OPTIONS", "const DEFAULT_ANIMATION_OPTIONS")
     .replace("export function parseSvgString", "function parseSvgString")
-    .replace("export function animateSvg", "function animateSvg");
+    .replace("export function revealSvg", "function revealSvg");
 
   return [
     "(function (globalThis) {",
@@ -26,8 +26,8 @@ function toGlobalBuild(sourceCode) {
     "",
     "  globalThis.SvgReveal = {",
     "    DEFAULT_ANIMATION_OPTIONS,",
-    "    animateSvg,",
-    "    parseSvgString",
+    "    parseSvgString,",
+    "    revealSvg",
     "  };",
     "})(globalThis);",
     ""

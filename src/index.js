@@ -2,11 +2,15 @@ const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 
 export const DEFAULT_ANIMATION_OPTIONS = {
   duration: 4000,
+  delay: 0,
   textRenderRatio: 0.2,
-  minSegmentLength: 0.5,
-  minSegmentDuration: 80,
+  minSegmentLength: 0,
+  minSegmentDuration: 0,
   fillFadeDuration: 180,
-  random: Math.random
+  autoPlay: false,
+  preserveExistingStyles: true,
+  respectReducedMotion: true,
+  randomFunction: Math.random
 };
 
 export function parseSvgString(source, options = {}) {
@@ -20,7 +24,13 @@ export function parseSvgString(source, options = {}) {
     throw new Error("parseSvgString necesita un document destino.");
   }
 
-  const parser = new DOMParser();
+  const Parser = targetDocument.defaultView?.DOMParser ?? globalThis.DOMParser;
+
+  if (!Parser) {
+    throw new Error("parseSvgString necesita DOMParser disponible.");
+  }
+
+  const parser = new Parser();
   const parsedDocument = parser.parseFromString(source, "image/svg+xml");
   const parserError = parsedDocument.querySelector("parsererror");
   const svg = parsedDocument.documentElement;
@@ -43,7 +53,7 @@ export function parseSvgString(source, options = {}) {
   return importedSvg;
 }
 
-export function animateSvg(svg, options = {}) {
+export function revealSvg(svg, options = {}) {
   const config = normalizeOptions(options);
   const segments = collectDrawableSegments(svg, config);
   const textData = prepareSvgTexts(svg);
@@ -53,17 +63,60 @@ export function animateSvg(svg, options = {}) {
   const xt = longest ? longest.length * 1.05 : 1;
   const velocity = xt / config.duration;
   const animations = [];
-
-  scheduleLineDrawing(orderedSegments, secondLongest, config, velocity, animations);
-  scheduleTextDrawing(textData, config, animations);
-
-  return {
+  const reveal = {
     segmentCount: segments.length,
     textCount: textData.length,
     xt,
     velocity,
-    animations
+    animations,
+    play,
+    reset,
+    finish,
+    destroy
   };
+
+  reset();
+
+  if (config.autoPlay) {
+    play();
+  }
+
+  return reveal;
+
+  function play() {
+    cancelAnimations(animations);
+    reset();
+
+    if (shouldReduceMotion(config)) {
+      finish();
+      return reveal;
+    }
+
+    scheduleLineDrawing(orderedSegments, secondLongest, config, velocity, animations);
+    scheduleTextDrawing(textData, config, animations);
+    return reveal;
+  }
+
+  function reset() {
+    cancelAnimations(animations);
+    segments.forEach(applyInitialSegmentState);
+    textData.forEach(resetTextState);
+    return reveal;
+  }
+
+  function finish() {
+    cancelAnimations(animations);
+    segments.forEach(applyFinalSegmentState);
+    textData.forEach(finishTextState);
+    return reveal;
+  }
+
+  function destroy() {
+    cancelAnimations(animations);
+    segments.forEach((segment) => restoreSegmentState(segment, config));
+    textData.forEach(restoreTextState);
+    return reveal;
+  }
 }
 
 function normalizeOptions(options) {
@@ -78,12 +131,13 @@ function normalizeOptions(options) {
     ...DEFAULT_ANIMATION_OPTIONS,
     ...options,
     duration,
+    delay: readNonNegativeNumber(options.delay, DEFAULT_ANIMATION_OPTIONS.delay),
     textRenderRatio,
-    minSegmentLength: readPositiveNumber(
+    minSegmentLength: readNonNegativeNumber(
       options.minSegmentLength,
       DEFAULT_ANIMATION_OPTIONS.minSegmentLength
     ),
-    minSegmentDuration: readPositiveNumber(
+    minSegmentDuration: readNonNegativeNumber(
       options.minSegmentDuration,
       DEFAULT_ANIMATION_OPTIONS.minSegmentDuration
     ),
@@ -91,9 +145,16 @@ function normalizeOptions(options) {
       options.fillFadeDuration,
       DEFAULT_ANIMATION_OPTIONS.fillFadeDuration
     ),
-    random: typeof options.random === "function"
-      ? options.random
-      : DEFAULT_ANIMATION_OPTIONS.random
+    autoPlay: Boolean(options.autoPlay ?? DEFAULT_ANIMATION_OPTIONS.autoPlay),
+    preserveExistingStyles: Boolean(
+      options.preserveExistingStyles ?? DEFAULT_ANIMATION_OPTIONS.preserveExistingStyles
+    ),
+    respectReducedMotion: Boolean(
+      options.respectReducedMotion ?? DEFAULT_ANIMATION_OPTIONS.respectReducedMotion
+    ),
+    randomFunction: typeof options.randomFunction === "function"
+      ? options.randomFunction
+      : DEFAULT_ANIMATION_OPTIONS.randomFunction
   };
 }
 
@@ -111,40 +172,71 @@ function collectDrawableSegments(svg, config) {
     .filter((segment) => Number.isFinite(segment.length) && segment.length > config.minSegmentLength)
     .map((segment) => ({
       ...segment,
-      fillOpacity: setupStrokeDrawing(segment.element, segment.length)
+      ...setupStrokeDrawing(segment.element, segment.length)
     }));
 }
 
 function setupStrokeDrawing(element, length) {
-  element.style.strokeDasharray = String(length);
-  element.style.strokeDashoffset = String(length);
-
-  if (!element.style.strokeLinecap) {
-    element.style.strokeLinecap = "round";
-  }
-
-  if (!element.style.strokeLinejoin) {
-    element.style.strokeLinejoin = "round";
-  }
-
-  const computed = getComputedStyle(element);
+  const computed = getElementComputedStyle(element);
   const hasVisibleStroke = computed.stroke && computed.stroke !== "none";
-
-  if (!hasVisibleStroke) {
-    element.style.stroke = computed.fill && computed.fill !== "none"
+  const originalStyles = snapshotStyles(element, [
+    "strokeDasharray",
+    "strokeDashoffset",
+    "strokeLinecap",
+    "strokeLinejoin",
+    "stroke",
+    "fillOpacity"
+  ]);
+  const stroke = hasVisibleStroke
+    ? null
+    : computed.fill && computed.fill !== "none"
       ? computed.fill
       : "currentColor";
-  }
 
   const fillOpacity = Number.parseFloat(computed.fillOpacity || "1");
   const hasVisibleFill = computed.fill && computed.fill !== "none" && fillOpacity > 0;
 
-  if (hasVisibleFill) {
-    element.style.fillOpacity = "0";
-    return fillOpacity;
+  return {
+    originalStyles,
+    stroke,
+    fillOpacity: hasVisibleFill ? fillOpacity : null
+  };
+}
+
+function applyInitialSegmentState(segment) {
+  segment.element.style.strokeDasharray = String(segment.length);
+  segment.element.style.strokeDashoffset = String(segment.length);
+
+  if (!segment.element.style.strokeLinecap) {
+    segment.element.style.strokeLinecap = "round";
   }
 
-  return null;
+  if (!segment.element.style.strokeLinejoin) {
+    segment.element.style.strokeLinejoin = "round";
+  }
+
+  if (segment.stroke) {
+    segment.element.style.stroke = segment.stroke;
+  }
+
+  if (segment.fillOpacity !== null) {
+    segment.element.style.fillOpacity = "0";
+  }
+}
+
+function applyFinalSegmentState(segment) {
+  segment.element.style.strokeDasharray = String(segment.length);
+  segment.element.style.strokeDashoffset = "0";
+
+  if (segment.fillOpacity !== null) {
+    segment.element.style.fillOpacity = String(segment.fillOpacity);
+  }
+}
+
+function restoreSegmentState(segment, config) {
+  if (config.preserveExistingStyles) {
+    restoreStyles(segment.element, segment.originalStyles);
+  }
 }
 
 function scheduleLineDrawing(segments, secondLongest, config, velocity, animations) {
@@ -154,20 +246,32 @@ function scheduleLineDrawing(segments, secondLongest, config, velocity, animatio
 
   const longest = segments[0];
   const rest = segments.slice(1);
-  const drawLongestFirst = !secondLongest || config.random() < 0.5;
+  const drawLongestFirst = !secondLongest || config.randomFunction() < 0.5;
   const durationFor = (segment) => Math.max(config.minSegmentDuration, segment.length / velocity);
 
   if (drawLongestFirst) {
-    animateSegment(longest, 0, durationFor(longest), config, animations);
+    animateSegment(longest, config.delay, durationFor(longest), config, animations);
 
     if (secondLongest) {
       const duration = durationFor(secondLongest);
-      animateSegment(secondLongest, Math.max(0, config.duration - duration), duration, config, animations);
+      animateSegment(
+        secondLongest,
+        config.delay + Math.max(0, config.duration - duration),
+        duration,
+        config,
+        animations
+      );
     }
   } else {
     const duration = durationFor(longest);
-    animateSegment(rest[0], 0, durationFor(rest[0]), config, animations);
-    animateSegment(longest, Math.max(0, config.duration - duration), duration, config, animations);
+    animateSegment(rest[0], config.delay, durationFor(rest[0]), config, animations);
+    animateSegment(
+      longest,
+      config.delay + Math.max(0, config.duration - duration),
+      duration,
+      config,
+      animations
+    );
   }
 
   const alreadyScheduled = new Set([
@@ -177,7 +281,7 @@ function scheduleLineDrawing(segments, secondLongest, config, velocity, animatio
 
   const distributed = shuffle(
     segments.filter((segment) => !alreadyScheduled.has(segment.element)),
-    config.random
+    config.randomFunction
   );
   const count = distributed.length;
 
@@ -186,8 +290,8 @@ function scheduleLineDrawing(segments, secondLongest, config, velocity, animatio
     const maxStart = Math.max(0, config.duration - duration);
     const slotWidth = maxStart / Math.max(1, count);
     const slotCenter = slotWidth * (index + 0.5);
-    const jitter = (config.random() - 0.5) * slotWidth * 0.75;
-    const delay = clamp(slotCenter + jitter, 0, maxStart);
+    const jitter = (config.randomFunction() - 0.5) * slotWidth * 0.75;
+    const delay = config.delay + clamp(slotCenter + jitter, 0, maxStart);
 
     animateSegment(segment, delay, duration, config, animations);
   });
@@ -238,6 +342,7 @@ function splitTextIntoCharacters(text) {
   const chars = [...value];
   const x = text.getAttribute("x");
   const y = text.getAttribute("y");
+  const xmlSpace = text.getAttribute("xml:space");
   const document = text.ownerDocument;
 
   text.textContent = "";
@@ -262,7 +367,34 @@ function splitTextIntoCharacters(text) {
     return tspan;
   });
 
-  return { text, characters };
+  return {
+    text,
+    characters,
+    originalText: value,
+    originalXmlSpace: xmlSpace
+  };
+}
+
+function resetTextState(data) {
+  data.characters.forEach((character) => {
+    character.style.opacity = "0";
+  });
+}
+
+function finishTextState(data) {
+  data.characters.forEach((character) => {
+    character.style.opacity = "1";
+  });
+}
+
+function restoreTextState(data) {
+  data.text.textContent = data.originalText;
+
+  if (data.originalXmlSpace === null) {
+    data.text.removeAttribute("xml:space");
+  } else {
+    data.text.setAttribute("xml:space", data.originalXmlSpace);
+  }
 }
 
 function scheduleTextDrawing(textData, config, animations) {
@@ -276,7 +408,7 @@ function scheduleTextDrawing(textData, config, animations) {
   const fadeDuration = Math.min(450, Math.max(80, letterStep * 0.8));
 
   textData.forEach((data) => {
-    const jitter = (config.random() - 0.5) * letterStep;
+    const jitter = (config.randomFunction() - 0.5) * letterStep;
     const lastCharacterEnd = config.duration - letterStep + jitter;
     const start = Math.max(
       0,
@@ -291,7 +423,7 @@ function scheduleTextDrawing(textData, config, animations) {
           { opacity: 1 }
         ],
         {
-          delay: start + (index * letterStep),
+          delay: config.delay + start + (index * letterStep),
           duration: fadeDuration,
           easing: "ease-out",
           fill: "forwards"
@@ -318,11 +450,50 @@ function runAnimation(element, keyframes, options, animations) {
   return null;
 }
 
-function shuffle(items, random) {
+function cancelAnimations(animations) {
+  animations.forEach((animation) => {
+    if (typeof animation?.cancel === "function") {
+      animation.cancel();
+    }
+  });
+
+  animations.length = 0;
+}
+
+function snapshotStyles(element, properties) {
+  return properties.reduce((snapshot, property) => {
+    snapshot[property] = element.style[property] || "";
+    return snapshot;
+  }, {});
+}
+
+function restoreStyles(element, snapshot) {
+  Object.entries(snapshot).forEach(([property, value]) => {
+    element.style[property] = value;
+  });
+}
+
+function getElementComputedStyle(element) {
+  if (typeof globalThis.getComputedStyle === "function") {
+    return globalThis.getComputedStyle(element);
+  }
+
+  return element.style ?? {};
+}
+
+function shouldReduceMotion(config) {
+  return (
+    config.respectReducedMotion &&
+    typeof globalThis.matchMedia === "function" &&
+    globalThis.matchMedia("(prefers-reduced-motion: reduce)").matches
+  );
+}
+
+function shuffle(items, randomFunction) {
   const copy = [...items];
 
   for (let index = copy.length - 1; index > 0; index -= 1) {
-    const randomIndex = Math.floor(random() * (index + 1));
+    const randomIndex = Math.floor(randomFunction() * (index + 1));
     [copy[index], copy[randomIndex]] = [copy[randomIndex], copy[index]];
   }
 
@@ -332,6 +503,11 @@ function shuffle(items, random) {
 function readPositiveNumber(value, fallback) {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function readNonNegativeNumber(value, fallback) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
 }
 
 function clamp(value, min, max) {
