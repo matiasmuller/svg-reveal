@@ -33,6 +33,14 @@
     "reveal",
     "draw"
   ],
-  "author": "",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/matiasmuller/svg-reveal.git"
+  },
+  "bugs": {
+    "url": "https://github.com/matiasmuller/svg-reveal/issues"
+  },
+  "author": "Matias Muller",
+  "homepage": "https://github.com/matiasmuller/svg-reveal#readme",
   "license": "MIT"
 }

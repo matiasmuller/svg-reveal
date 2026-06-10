@@ -6,6 +6,8 @@ This project follows a simple, human-readable changelog format inspired by Keep 
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-06-10
+
 ### Added
 
 - Added `revealSvg` as the single lifecycle API with `play`, `reset`, `finish`, and `destroy`.

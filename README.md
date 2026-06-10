@@ -10,6 +10,12 @@ The package is intentionally focused: it is meant for line-based SVG illustratio
 
 > Project status: early prototype. The current API is usable, but still evolving before a stable release.
 
+## Installation
+
+```bash
+npm install svg-reveal
+```
+
 ## Usage
 
 ```js
@@ -79,6 +85,15 @@ Options:
 
 In browsers, `parseSvgString(svgSource)` is usually enough. Pass `document` only when parsing into a specific document, such as an iframe or a test DOM.
 
+## Development
+
+```bash
+npm run check
+npm run playground
+```
+
+`npm run check` runs the dependency-free tests and rebuilds the distributable files.
+
 ## Limitations
 
 - Dashed strokes can conflict with the stroke reveal technique because both use `stroke-dasharray`.
@@ -99,6 +114,12 @@ Pequeña utilidad JavaScript para revelar progresivamente dibujos SVG hechos con
 El paquete mantiene un foco intencional: está pensado para ilustraciones SVG basadas en líneas, diagramas, iconos y dibujos técnicos. No intenta reemplazar librerías generales de animación.
 
 > Estado del proyecto: prototipo temprano. La API actual es usable, pero todavia puede evolucionar antes de una version estable.
+
+## Instalacion
+
+```bash
+npm install svg-reveal
+```
 
 ## Uso
 
@@ -168,6 +189,15 @@ Opciones:
 - `ariaLabel`: etiqueta accesible aplicada al SVG. Por defecto es `"SVG animado"`.
 
 En navegadores, `parseSvgString(svgSource)` suele ser suficiente. Pasa `document` solo cuando necesites parsear en un documento especifico, como un iframe o un DOM de tests.
+
+## Desarrollo
+
+```bash
+npm run check
+npm run playground
+```
+
+`npm run check` ejecuta los tests sin dependencias y reconstruye los archivos distribuibles.
 
 ## Limitaciones
 
